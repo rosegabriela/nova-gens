@@ -1,4 +1,4 @@
-# NovaGens Metagenomics Analysis Platform
+# NovaGens UK - Metagenomics Analysis Platform
 
 NovaGens provides **high-performance, reproducible metagenomic analysis** delivered through secure European cloud infrastructure.  
 The service converts **raw paired-end sequencing reads** into **taxonomic insight, genome assemblies, and interactive microbiome visualisations**, using validated bioinformatics methods and controlled database governance.
@@ -255,5 +255,5 @@ NovaGens is built on:
 
 ---
 
-**NovaGens Bioinformatics & Cloud Engineering**  
+**NovaGens UK Bioinformatics & Cloud Engineering**  
 Secure, reproducible metagenomics for research and discovery.
