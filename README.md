@@ -1,124 +1,259 @@
-NovaGens Metagenomics Pipeline
+# NovaGens Metagenomics Analysis Platform
 
-Automated, high-performance metagenomics analysis pipeline designed for AWS EC2 execution. This pipeline processes raw sequencing data from S3, performs quality control, de novo assembly, taxonomic classification, and generates interactive visualizations, with automatic resource management (auto-shutdown).
+NovaGens provides **high-performance, reproducible metagenomic analysis** delivered through secure European cloud infrastructure.  
+The service converts **raw paired-end sequencing reads** into **taxonomic insight, genome assemblies, and interactive microbiome visualisations**, using validated bioinformatics methods and controlled database governance.
 
-🏗 Infrastructure & Hardware
+This document describes:
 
-The pipeline is optimized for memory-intensive assembly and rapid classification using AWS memory-optimized instances.
+- The **scientific processing pipeline**
+- The **cloud infrastructure and data residency**
+- The **reference database strategy**
+- The **type of analytical service provided to customers**
 
-Instance Type: AWS EC2 r5.8xlarge
+---
 
-CPU: 32 vCPUs (Intel Xeon Platinum 8000 series)
+# 1. Service Overview
 
-RAM: 256 GB DDR4 Memory
+NovaGens delivers a **fully managed metagenomics workflow**, including:
 
-Storage: * Root Volume: OS & Software
+- Secure ingestion of FASTQ sequencing data  
+- Read quality control and adapter trimming  
+- De novo metagenomic assembly  
+- Taxonomic classification against official Kraken2 databases  
+- Interactive and report-ready visual outputs  
+- Reproducible, audit-traceable execution  
 
-Mounted Volume (/data): High-performance NVMe SSD for Database & I/O operations
+Designed for:
 
-OS: Amazon Linux 2 / Ubuntu
+- Research laboratories  
+- Clinical and translational environments  
+- Environmental microbiome studies  
+- Biotechnology and genomic discovery  
 
-🧬 Pipeline Workflow
-The pipeline (run_ALL_samples.sh) executes the following stages sequentially for every sample found in the S3 bucket:
+---
 
-S3 Discovery & Smart Resume:
+# 2. Secure Infrastructure & Data Residency
 
-Scans s3://novagens-data/2-AN00027564/ for paired-end reads (_1.fastq.gz).
+## Cloud Region
 
-Logic: Checks if results already exist in S3. If found, the sample is skipped to save compute time and cost.
+All computation is executed in:
 
-Data Acquisition:
+**AWS Europe (Stockholm, Sweden) – `eu-north-1`**
 
-Downloads raw paired-end FASTQ files from Amazon S3 to the local high-speed disk.
+This ensures:
 
-Quality Control (Trim Galore):
+- European data residency  
+- GDPR-aligned genomic data handling  
+- Controlled scientific compute environment  
+- No data transfer outside the EU during processing  
 
-Tool: trim_galore (Wrapper for Cutadapt & FastQC)
+---
 
-Config: --paired --fastqc --retain_unpaired --cores 16
+## Scientific Compute Environment
 
-Removes adapters and low-quality bases.
+Metagenomic assembly and classification run on **memory-optimised AWS EC2 infrastructure**.
 
-De Novo Assembly (MetaSPAdes):
+**Instance Type:** `r5.8xlarge`
 
-Tool: spades.py (v3.15+)
+| Resource | Specification |
+|----------|--------------|
+| CPU | 32 vCPUs (Intel Xeon Platinum class) |
+| RAM | 256 GB DDR4 |
+| Storage | High-speed NVMe scratch disk for assembly & I/O |
+| OS | Linux (Ubuntu / Amazon Linux) |
 
-Config: --meta -t 32 -m 240 -k 21,33,55,77,99,111,127
+### Rationale
 
-Constructs contigs from short reads using 32 threads and up to 240GB RAM.
+- **MetaSPAdes** requires very high RAM availability  
+- **Kraken2** benefits from parallel CPU execution  
+- **NVMe storage** enables fast contig construction and read/write performance  
 
-Taxonomic Classification (Kraken2):
+Instances **automatically shut down after analysis**, ensuring:
 
-Tool: kraken2
+- Data minimisation  
+- Cost efficiency  
+- Clean compute environments between projects  
 
-Database: Standard Kraken2 Database (Oct 2025 Build, ~72GB)
+---
 
-Config: --threads 32 --use-mpa-style --quick --memory-mapping
+# 3. Scientific Processing Pipeline
 
-Assigns taxonomic labels to assembled contigs.
+NovaGens applies an **assembly-first metagenomic workflow**, improving taxonomic specificity compared with direct read classification.
 
-Visualization (Krona):
+## Step 1 — Secure Data Acquisition
 
-Tool: ktImportTaxonomy
+- Paired-end FASTQ files retrieved from secure object storage  
+- File integrity validated before processing  
+- Processing occurs entirely within EU infrastructure  
 
-Generates an interactive HTML sunburst chart (.html) for exploring the microbiome hierarchy.
+---
 
-Archival & Shutdown:
+## Step 2 — Read Quality Control & Trimming
 
-Uploads reports (.report) and charts (.html) back to S3.
+**Toolchain:** Trim Galore (Cutadapt + FastQC)
 
-Cleans up large intermediate files to free disk space.
+Purpose:
 
-Auto-Shutdown: Automatically terminates the EC2 instance upon completion of all samples to prevent billing.
+- Remove sequencing adapters  
+- Trim low-quality bases  
+- Preserve paired-end synchronisation  
+- Produce quality-controlled reads for assembly  
 
-🛠 Dependencies & Installation
-The pipeline relies on Conda environments for reproducibility.
+This reduces sequencing noise and improves downstream accuracy.
 
-1. Conda Environments
-trimming_env: Contains trim-galore, fastqc, cutadapt.
+---
 
-meta: Contains spades.
+## Step 3 — De Novo Metagenomic Assembly
 
-kraken_env: Contains kraken2, krona.
+**Assembler:** MetaSPAdes
 
-2. Database Setup
-The pipeline uses the full Standard Kraken2 Database (Bacteria, Archaea, Virus, Human, UniVec).
+Characteristics:
 
-Source: Ben Langmead's Kraken2 Index
+- Designed for **mixed microbial communities**  
+- Multi-k-mer graph assembly strategy  
+- Produces **contigs representing genomic fragments**
 
-Link Used: https://genome-idx.s3.amazonaws.com/kraken/k2_standard_20251015.tar.gz
+Benefits:
 
-Location: /data/nova/kraken_db/standard/
+- Higher taxonomic specificity  
+- Reduced short-read false positives  
+- Enables downstream comparative genomics  
 
-Files Required: hash.k2d, opts.k2d, taxo.k2d
+---
 
-🚀 Usage
-1. Setup the Script
-Ensure the script is executable:
+## Step 4 — Taxonomic Classification
 
-Bash
-chmod +x run_ALL_samples.sh
-2. Run in Background ("Fire and Forget")
-Use nohup to keep the process running after disconnecting SSH. The script handles the loop and final shutdown.
+**Classifier:** Kraken2  
+**Input:** Assembled contigs  
 
-Bash
-nohup bash run_ALL_samples.sh > pipeline.log 2>&1 &
-3. Monitoring
-Check the progress in real-time:
+Kraken2 performs:
 
-Bash
-tail -f pipeline.log
-📂 Output Structure (S3)
-Results are uploaded to s3://novagens-data/2-AN00027564/results/:
+- Exact k-mer matching against reference genomes  
+- Lowest Common Ancestor (LCA) assignment  
+- Rapid, memory-efficient classification  
 
-SAMPLE_standard.report: Text-based report compatible with Pavian/Breckenridge.
+Outputs:
 
-SAMPLE_krona_standard.html: Interactive HTML visualization.
+- Hierarchical taxonomic report  
+- Raw classification assignments  
+- Relative abundance summaries  
 
-📝 Script Configuration Variables
-Variable	Description	Default
-S3_BUCKET	AWS S3 Bucket Name	novagens-data
-S3_FOLDER	Input Data Folder Path	2-AN00027564
-PROJECT	Local Working Directory	/data/nova/AN00027564
-DB_STD	Kraken2 Database Path	/data/nova/kraken_db/standard
-Maintained by NovaGens Bioinformatics Team
+---
+
+## Step 5 — Interactive Visualisation
+
+**Tool:** Krona
+
+Provides:
+
+- Browser-based hierarchical microbiome exploration  
+- Drill-down across taxonomic levels  
+- Shareable interactive HTML visualisation  
+
+---
+
+## Step 6 — Archival & Reproducibility
+
+Final deliverables include:
+
+- Taxonomic reports  
+- Interactive visualisations  
+- Optional assembled contigs  
+- Processing logs for full audit traceability  
+
+All results are securely stored in EU infrastructure.
+
+---
+
+# 4. Reference Database Strategy
+
+Accurate classification depends on **trusted, version-controlled reference genomes**.
+
+NovaGens exclusively uses **official Kraken2 index builds** provided by:
+
+**Ben Langmead AWS Kraken2 Index Repository**  
+https://benlangmead.github.io/aws-indexes/k2
+
+---
+
+## Database Comparison Capability
+
+Different biological questions require different reference scopes.  
+NovaGens supports multiple database configurations:
+
+| Database Type | Scientific Purpose |
+|---------------|-------------------|
+| Standard microbial reference | Broad detection across bacteria, archaea, viruses, and host filtering |
+| PlusPF / extended reference | Includes plasmids and expanded eukaryotic content |
+| Fungal-focused database | Targeted mycobiome and environmental fungal studies |
+| Custom customer database | Project-specific comparative genomics |
+
+Because Kraken2 databases are **versioned and traceable**, NovaGens enables:
+
+- Reproducible historical analysis  
+- Cross-database comparison studies  
+- Publication-grade methodological transparency  
+
+---
+
+# 5. Type of Service Provided
+
+NovaGens operates as a **managed scientific analysis service**, not only a computational pipeline.
+
+Customers receive:
+
+## Scientifically Interpretable Outputs
+
+- Structured taxonomy reports  
+- Interactive microbiome visualisations  
+- Optional genome assemblies for research  
+
+---
+
+## Reproducible & Traceable Processing
+
+Each analysis includes:
+
+- Logged workflow execution  
+- Database version tracking  
+- Deterministic, repeatable computation  
+
+Suitable for:
+
+- Research publication  
+- Regulatory or clinical environments  
+- Long-term comparative studies  
+
+---
+
+## Secure European Genomic Processing
+
+All genomic data:
+
+- Processed in **Sweden (EU)**  
+- Stored in controlled infrastructure  
+- Never transferred outside the EU during analysis  
+
+---
+
+# 6. Typical Customer Workflow
+
+1. Customer provides paired-end sequencing FASTQ files  
+2. NovaGens executes the full metagenomic pipeline in EU cloud infrastructure  
+3. Customer receives interpretable biological reports, visualisations, and optional assemblies  
+
+---
+
+# 7. Scientific Principles of NovaGens
+
+NovaGens is built on:
+
+- **Reproducibility** — versioned databases and deterministic workflows  
+- **Accuracy** — assembly-based classification using validated tools  
+- **Security** — EU-resident genomic data processing  
+- **Clarity** — outputs designed for biological interpretation  
+
+---
+
+**NovaGens Bioinformatics & Cloud Engineering**  
+Secure, reproducible metagenomics for research and discovery.
